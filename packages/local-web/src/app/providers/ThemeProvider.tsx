@@ -9,7 +9,7 @@ type ThemeProviderProps = {
 
 export function ThemeProvider({
   children,
-  initialTheme = ThemeMode.SYSTEM,
+  initialTheme = ThemeMode.DARK,
   ...props
 }: ThemeProviderProps) {
   const [theme, setThemeState] = useState<ThemeMode>(initialTheme);

@@ -56,6 +56,11 @@ module.exports = {
       },
     },
     extend: {
+      boxShadow: {
+        'btn': '0 4px 14px 0 rgba(0, 0, 0, 0.4), inset 0 1px 0 0 rgba(255, 255, 255, 0.08)',
+        'card': '0 8px 32px 0 rgba(0, 0, 0, 0.4), inset 0 1px 0 0 rgba(255, 255, 255, 0.05)',
+        'glow': '0 0 20px 0 rgba(100, 150, 255, 0.15)',
+      },
       height: {
         'cta': '29px',
       },

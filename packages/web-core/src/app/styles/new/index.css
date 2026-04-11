@@ -91,41 +91,41 @@ html {
     color-scheme: dark;
 
     /* Internal variables (dark) - needed for public tokens */
-    --_background: 0 0% 13%;
-    --_foreground: 0 0% 96%;
-    --_primary: 240 4.8% 95.9%;
-    --_primary-foreground: 240 5.9% 10%;
-    --_secondary: 0 0% 12%;
-    --_secondary-foreground: 0 0% 77%;
-    --_muted: 0 0% 16%;
-    --_muted-foreground: 0 0% 64%;
-    --_accent: 0 0% 20%;
-    --_accent-foreground: 0 0% 96%;
-    --_destructive: 0 59% 57%;
-    --_destructive-foreground: 0 0% 96%;
-    --_border: 0 0% 20%;
-    --_input: 0 0% 20%;
-    --_ring: 0 0% 77%;
+    --_background: 224 25% 6%;
+    --_foreground: 210 20% 98%;
+    --_primary: 210 20% 98%;
+    --_primary-foreground: 224 25% 6%;
+    --_secondary: 224 20% 12%;
+    --_secondary-foreground: 210 20% 80%;
+    --_muted: 224 20% 12%;
+    --_muted-foreground: 210 20% 65%;
+    --_accent: 224 20% 16%;
+    --_accent-foreground: 210 20% 98%;
+    --_destructive: 0 60% 50%;
+    --_destructive-foreground: 210 20% 98%;
+    --_border: 224 20% 18%;
+    --_input: 224 20% 12%;
+    --_ring: 224 50% 60%;
 
     /* Status (dark) */
-    --_success: 117 38% 50%;
-    --_success-foreground: 117 38% 90%;
-    --_warning: 32.2 95% 44.1%;
-    --_warning-foreground: 32.2 95% 90%;
-    --_info: 217.2 91.2% 59.8%;
-    --_info-foreground: 217.2 91.2% 90%;
-    --_neutral: 0 0% 20%;
-    --_neutral-foreground: 0 0% 90%;
+    --_success: 142 60% 45%;
+    --_success-foreground: 144 80% 90%;
+    --_warning: 38 90% 50%;
+    --_warning-foreground: 40 90% 90%;
+    --_info: 217 90% 60%;
+    --_info-foreground: 210 90% 90%;
+    --_neutral: 224 20% 20%;
+    --_neutral-foreground: 210 20% 90%;
 
     /* Text (dark) */
-    --text-high: 0 0% 96%;
-    --text-normal: 0 0% 77%;
-    --text-low: 0 0% 56%;
+    --text-high: 210 20% 98%;
+    --text-normal: 210 20% 80%;
+    --text-low: 210 20% 56%;
 
     /* Background (dark) - with VS Code overrides */
-    --_bg-primary-default: 0 0% 13%;
-    --_bg-secondary-default: 0 0% 11%;
-    --_bg-panel-default: 0 0% 16%;
+    --_bg-primary-default: 224 25% 6%;
+    --_bg-secondary-default: 224 20% 10%;
+    --_bg-panel-default: 224 20% 12%;
     --bg-primary: var(--vscode-editor-background, var(--_bg-primary-default));
     --bg-secondary: var(
       --vscode-editorWidget-background,

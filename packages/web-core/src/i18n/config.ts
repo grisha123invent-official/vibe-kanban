@@ -9,6 +9,11 @@ import enSettings from './locales/en/settings.json';
 import enProjects from './locales/en/projects.json';
 import enTasks from './locales/en/tasks.json';
 import enOrganization from './locales/en/organization.json';
+import ruCommon from './locales/ru/common.json';
+import ruSettings from './locales/ru/settings.json';
+import ruProjects from './locales/ru/projects.json';
+import ruTasks from './locales/ru/tasks.json';
+import ruOrganization from './locales/ru/organization.json';
 import frCommon from './locales/fr/common.json';
 import frSettings from './locales/fr/settings.json';
 import frProjects from './locales/fr/projects.json';
@@ -47,6 +52,13 @@ const resources = {
     projects: enProjects,
     tasks: enTasks,
     organization: enOrganization,
+  },
+  ru: {
+    common: ruCommon,
+    settings: ruSettings,
+    projects: ruProjects,
+    tasks: ruTasks,
+    organization: ruOrganization,
   },
   fr: {
     common: frCommon,
@@ -102,7 +114,7 @@ i18n
       'zh-HK': ['zh-Hant'],
       'zh-MO': ['zh-Hant'],
       zh: ['zh-Hans'], // Map generic Chinese to Simplified Chinese
-      default: ['en'],
+      default: ['ru', 'en'],
     },
     defaultNS: 'common',
     debug: import.meta.env.DEV,
@@ -139,7 +151,7 @@ export const updateLanguageFromConfig = (configLanguage: string) => {
     // Use browser detection
     const detected = i18n.services.languageDetector?.detect();
     const detectedLang = Array.isArray(detected) ? detected[0] : detected;
-    i18n.changeLanguage(detectedLang || 'en');
+    i18n.changeLanguage(detectedLang || 'ru');
   } else {
     // Use explicit language selection with proper mapping
     const langCode = uiLanguageToI18nCode(configLanguage);
@@ -147,9 +159,9 @@ export const updateLanguageFromConfig = (configLanguage: string) => {
       i18n.changeLanguage(langCode);
     } else {
       console.warn(
-        `Unknown UI language: ${configLanguage}, falling back to 'en'`
+        `Unknown UI language: ${configLanguage}, falling back to 'ru'`
       );
-      i18n.changeLanguage('en');
+      i18n.changeLanguage('ru');
     }
   }
 };
