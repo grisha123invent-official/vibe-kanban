@@ -1,12 +1,12 @@
 /** @type {import('tailwindcss').Config} */
 
 const sizes = {
-  '2xs': 0.5,
-  xs: 0.75,
-  sm: 0.875,
-  base: 1,
-  lg: 1.125,
-  xl: 1.25,
+  '2xs': 0.625,
+  xs: 0.875,
+  sm: 1,
+  base: 1.125,
+  lg: 1.25,
+  xl: 1.5,
 }
 
 const lineHeightMultiplier = 1.5;

@@ -24,6 +24,7 @@ import { fileSystemApi } from '@/shared/lib/api';
 import { DirectoryEntry, DirectoryListResponse } from 'shared/types';
 import { create, useModal } from '@ebay/nice-modal-react';
 import { defineModal } from '@/shared/lib/modals';
+import { repoApi } from '@/shared/lib/api';
 
 export interface FolderPickerDialogProps {
   value?: string;
@@ -45,6 +46,9 @@ const FolderPickerDialogImpl = create<FolderPickerDialogProps>(
     const [error, setError] = useState('');
     const [manualPath, setManualPath] = useState(value);
     const [searchTerm, setSearchTerm] = useState('');
+    const [isCreatingProject, setIsCreatingProject] = useState(false);
+    const [newProjectName, setNewProjectName] = useState('');
+    const [creating, setCreating] = useState(false);
 
     const filteredEntries = useMemo(() => {
       if (!searchTerm.trim()) return entries;
@@ -133,6 +137,26 @@ const FolderPickerDialogImpl = create<FolderPickerDialogProps>(
     const handleCancel = () => {
       modal.resolve(null);
       modal.hide();
+    };
+
+    const handleCreateProject = async () => {
+      if (!newProjectName.trim() || !currentPath) return;
+      setCreating(true);
+      setError('');
+      try {
+        const repo = await repoApi.init({
+          parent_path: currentPath,
+          folder_name: newProjectName.trim(),
+        });
+        modal.resolve(repo.path);
+        modal.hide();
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : 'Failed to create project'
+        );
+      } finally {
+        setCreating(false);
+      }
     };
 
     const handleOpenChange = (open: boolean) => {
@@ -274,7 +298,9 @@ const FolderPickerDialogImpl = create<FolderPickerDialogProps>(
                         </span>
                         {entry.is_git_repo && (
                           <span className="text-xs text-success bg-green-100 px-2 py-1 rounded flex-shrink-0">
-                            {t('folderPicker.gitRepo')}
+                            {t('folderPicker.gitRepo', {
+                              defaultValue: 'git-repo',
+                            })}
                           </span>
                         )}
                       </div>
@@ -282,9 +308,63 @@ const FolderPickerDialogImpl = create<FolderPickerDialogProps>(
                   </div>
                 )}
               </div>
+
+              {/* Create new project inline view */}
+              {isCreatingProject && (
+                <div className="space-y-2 pt-2 border-t mt-2">
+                  <div className="text-sm font-medium">
+                    {t('folderPicker.newProjectName', {
+                      defaultValue: 'New Project Name',
+                    })}
+                  </div>
+                  <div className="flex space-x-2 min-w-0">
+                    <Input
+                      value={newProjectName}
+                      onChange={(e) => setNewProjectName(e.target.value)}
+                      placeholder={t('folderPicker.newProjectPlaceholder', {
+                        defaultValue: 'my-awesome-project',
+                      })}
+                      className="flex-1 min-w-0"
+                      autoFocus
+                    />
+                    <Button
+                      onClick={handleCreateProject}
+                      disabled={!newProjectName.trim() || creating}
+                      variant="default"
+                      size="sm"
+                      className="flex-shrink-0"
+                    >
+                      {creating
+                        ? '...'
+                        : t('buttons.create', { defaultValue: 'Создать' })}
+                    </Button>
+                    <Button
+                      onClick={() => setIsCreatingProject(false)}
+                      variant="outline"
+                      size="sm"
+                      className="flex-shrink-0"
+                    >
+                      {t('buttons.cancel')}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <DialogFooter>
+              {!isCreatingProject && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="mr-auto"
+                  onClick={() => setIsCreatingProject(true)}
+                  disabled={!currentPath || loading}
+                >
+                  {t('folderPicker.createNewProject', {
+                    defaultValue: 'Создать проект',
+                  })}
+                </Button>
+              )}
               <Button type="button" variant="outline" onClick={handleCancel}>
                 {t('buttons.cancel')}
               </Button>

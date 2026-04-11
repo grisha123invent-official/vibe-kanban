@@ -6,6 +6,10 @@ import {
   SpeakerHighIcon,
   SpinnerIcon,
 } from '@phosphor-icons/react';
+import {
+  agentConfigApi,
+  buildHarnessConfig,
+} from '@/shared/lib/agentConfigApi';
 import { FolderPickerDialog } from '@/shared/dialogs/shared/FolderPickerDialog';
 import {
   type BaseCodingAgent,
@@ -77,6 +81,42 @@ export function GeneralSettingsSection() {
     null
   );
   const { setTheme } = useTheme();
+
+  // Agent Management state — maps directly to AgentHarnessConfig DTO
+  const [agentFramework, setAgentFramework] = useState('antigravity');
+  const [geminiApiKey, setGeminiApiKey] = useState('');
+  const [claudeApiKey, setClaudeApiKey] = useState('');
+  const [localLlmUrl, setLocalLlmUrl] = useState('');
+  const [customSkills, setCustomSkills] = useState('');
+  const [agentSaving, setAgentSaving] = useState(false);
+  const [agentSaveError, setAgentSaveError] = useState<string | null>(null);
+  const [agentSaveSuccess, setAgentSaveSuccess] = useState(false);
+
+  const handleSaveAgentConfig = async () => {
+    setAgentSaving(true);
+    setAgentSaveError(null);
+    setAgentSaveSuccess(false);
+    try {
+      const harness = buildHarnessConfig({
+        agentFramework,
+        geminiApiKey,
+        claudeApiKey,
+        localLlmUrl,
+        customSkills,
+      });
+      // Fire a "dry-run" spawn with an empty prompt so the backend validates
+      // the config and stores the env; production callers pass the real prompt.
+      await agentConfigApi.start({ harness, prompt: '' });
+      setAgentSaveSuccess(true);
+      setTimeout(() => setAgentSaveSuccess(false), 3000);
+    } catch (err) {
+      setAgentSaveError(
+        err instanceof Error ? err.message : 'Failed to save agent config'
+      );
+    } finally {
+      setAgentSaving(false);
+    }
+  };
 
   // Executor options for the default coding agent dropdown
   const executorOptions = profiles
@@ -263,6 +303,134 @@ export function GeneralSettingsSection() {
         </div>
       )}
 
+      {/* Agent Management */}
+      <SettingsCard
+        title={t('settings.general.agentManagement.title', {
+          defaultValue: 'Agent Management',
+        })}
+        description={t('settings.general.agentManagement.description', {
+          defaultValue: 'Configure underlying AI frameworks and API keys.',
+        })}
+      >
+        {agentSaveError && (
+          <div className="bg-error/10 border border-error/50 rounded-sm p-3 text-error text-sm">
+            {agentSaveError}
+          </div>
+        )}
+        {agentSaveSuccess && (
+          <div className="bg-success/10 border border-success/50 rounded-sm p-3 text-success text-sm font-medium">
+            {t('settings.general.agentManagement.saveSuccess', {
+              defaultValue: 'Agent configuration saved successfully.',
+            })}
+          </div>
+        )}
+
+        <SettingsField
+          label={t('settings.general.agentManagement.framework.label', {
+            defaultValue: 'Framework',
+          })}
+          description={t('settings.general.agentManagement.framework.helper', {
+            defaultValue: 'Select the core agent framework',
+          })}
+        >
+          <SettingsSelect
+            value={agentFramework}
+            options={[
+              { value: 'antigravity', label: 'Antigravity' },
+              { value: 'claude_code', label: 'Claude Code' },
+              { value: 'local_llm', label: 'Local LLM (Ollama)' },
+            ]}
+            onChange={setAgentFramework}
+            placeholder="Select Framework"
+          />
+        </SettingsField>
+
+        <SettingsField
+          label={t('settings.general.agentManagement.gemini.label', {
+            defaultValue: 'Gemini API Key',
+          })}
+          description={t('settings.general.agentManagement.gemini.helper', {
+            defaultValue:
+              'Required for Gemini / Antigravity models (GEMINI_API_KEY)',
+          })}
+        >
+          <SettingsInput
+            value={geminiApiKey}
+            onChange={setGeminiApiKey}
+            placeholder="AIzaSy..."
+            type="password"
+          />
+        </SettingsField>
+
+        <SettingsField
+          label={t('settings.general.agentManagement.claude.label', {
+            defaultValue: 'Claude API Key',
+          })}
+          description={t('settings.general.agentManagement.claude.helper', {
+            defaultValue: 'Required for Anthropic models (ANTHROPIC_API_KEY)',
+          })}
+        >
+          <SettingsInput
+            value={claudeApiKey}
+            onChange={setClaudeApiKey}
+            placeholder="sk-ant-..."
+            type="password"
+          />
+        </SettingsField>
+
+        <SettingsField
+          label={t('settings.general.agentManagement.localLlmUrl.label', {
+            defaultValue: 'Local LLM URL (Optional)',
+          })}
+          description={t(
+            'settings.general.agentManagement.localLlmUrl.helper',
+            {
+              defaultValue:
+                'Endpoint for local models, e.g. Ollama (OPENAI_BASE_URL)',
+            }
+          )}
+        >
+          <SettingsInput
+            value={localLlmUrl}
+            onChange={setLocalLlmUrl}
+            placeholder="http://localhost:11434"
+          />
+        </SettingsField>
+
+        <SettingsField
+          label={t('settings.general.agentManagement.customSkills.label', {
+            defaultValue: 'Custom @skills',
+          })}
+          description={t(
+            'settings.general.agentManagement.customSkills.helper',
+            {
+              defaultValue:
+                'Semicolon-separated list of custom skill paths (VK_CUSTOM_SKILLS)',
+            }
+          )}
+        >
+          <SettingsInput
+            value={customSkills}
+            onChange={setCustomSkills}
+            placeholder="e.g. /skills/my-agent; /skills/custom"
+          />
+        </SettingsField>
+
+        <div className="flex justify-end pt-2">
+          <PrimaryButton onClick={handleSaveAgentConfig} disabled={agentSaving}>
+            {agentSaving ? (
+              <SpinnerIcon
+                className="size-icon-sm animate-spin"
+                weight="bold"
+              />
+            ) : null}
+            {t('settings.general.agentManagement.saveButton', {
+              defaultValue: 'Apply Agent Config',
+            })}
+          </PrimaryButton>
+        </div>
+      </SettingsCard>
+
       {/* Appearance */}
       <SettingsCard
         title={t('settings.general.appearance.title')}
@@ -286,7 +454,7 @@ export function GeneralSettingsSection() {
         >
           <SettingsSelect
             value={draft?.language}
-            options={languageOptions}
+            options={languageOptions as { value: UiLanguage; label: string }[]}
             onChange={(value: UiLanguage) => updateDraft({ language: value })}
             placeholder={t('settings.general.appearance.language.placeholder')}
           />
