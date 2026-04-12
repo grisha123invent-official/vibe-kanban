@@ -52,6 +52,7 @@ import { WorkspacesSidebarContainer } from '@/pages/workspaces/WorkspacesSidebar
 import { WorkspacesSidebarReopenTag } from '@vibe/ui/components/WorkspacesSidebar';
 import { useRemoteCloudHostsAppBarModel } from '@/shared/hooks/useRemoteCloudHosts';
 import { CloudShutdownExportBanner } from '@/shared/components/CloudShutdownExportBanner';
+import type { OrganizationWithRole } from 'shared/types';
 
 export function SharedAppLayout() {
   const appNavigation = useAppNavigation();
@@ -93,7 +94,8 @@ export function SharedAppLayout() {
   // AppBar state - organizations and projects
   const { data: orgsData } = useUserOrganizations();
   const organizations = useMemo(
-    () => orgsData?.organizations ?? [],
+    () => (orgsData?.organizations ?? []) as OrganizationWithRole[],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [orgsData?.organizations]
   );
 
@@ -124,7 +126,9 @@ export function SharedAppLayout() {
     isLoading,
     updateMany: updateManyProjects,
   } = useShape(PROJECTS_SHAPE, projectParams, {
-    enabled: isSignedIn && !!selectedOrgId,
+    // Local-first: always load — offline mock handles requests without a real org/auth.
+    // Remote mode: shape is always fetched regardless (server filters by org_id in params).
+    enabled: true,
     mutation: PROJECT_MUTATION,
   });
   const sortedProjects = useMemo(
@@ -244,11 +248,13 @@ export function SharedAppLayout() {
   );
 
   const handleCreateProject = useCallback(async () => {
-    if (!selectedOrgId) return;
+    // Local-first: any org ID works as a container; fall back to 'local' when
+    // no remote org is connected. The real identifier is the folder path.
+    const orgId = selectedOrgId ?? 'local';
 
     try {
       const result: CreateRemoteProjectResult =
-        await CreateRemoteProjectDialog.show({ organizationId: selectedOrgId });
+        await CreateRemoteProjectDialog.show({ organizationId: orgId });
 
       if (result.action === 'created' && result.project) {
         appNavigation.goToProject(result.project.id);

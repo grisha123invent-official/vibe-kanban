@@ -26,6 +26,154 @@ use crate::{
     executors::{ExecutorError, SpawnedChild},
 };
 
+// ─── PM Orchestrator: Skill Injector ────────────────────────────────────────
+
+/// Reads the `VK_CUSTOM_SKILLS` env variable (colon- or semicolon-separated
+/// list of directory paths) and returns a list of skill names discovered by
+/// scanning each directory for `SKILL.md` files.
+///
+/// A `SKILL.md` file is expected to start with a YAML frontmatter block:
+/// ```yaml
+/// ---
+/// name: my-skill-name
+/// description: ...
+/// ---
+/// ```
+/// The `name:` field is extracted from the frontmatter. If no `name:` is found,
+/// the parent directory name is used as a fallback.
+pub fn collect_skill_names_from_env(env_overrides: &HashMap<String, String>) -> Vec<String> {
+    // Priority: API-supplied env_overrides > system environment variable.
+    // This allows users to set VK_CUSTOM_SKILLS in their shell / .env file
+    // without having to pass it explicitly through the agent config API.
+    let skills_path_str = env_overrides
+        .get("VK_CUSTOM_SKILLS")
+        .filter(|v| !v.is_empty())
+        .cloned()
+        .or_else(|| std::env::var("VK_CUSTOM_SKILLS").ok())
+        .unwrap_or_default();
+
+    if skills_path_str.is_empty() {
+        return Vec::new();
+    }
+
+    // Accept both `:` (Unix-like PATH) and `;` (Windows-style / user preference)
+    let search_dirs: Vec<&str> = skills_path_str
+        .split(|c| c == ':' || c == ';')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    let mut skill_names: Vec<String> = Vec::new();
+
+    for dir_str in search_dirs {
+        let dir = PathBuf::from(dir_str);
+        if !dir.is_dir() {
+            tracing::debug!(path = %dir.display(), "VK_CUSTOM_SKILLS: path not found or not a dir, skipping");
+            continue;
+        }
+        scan_skills_dir(&dir, &mut skill_names);
+    }
+
+    skill_names
+}
+
+/// Recursively scans `dir` for `SKILL.md` files and appends discovered skill
+/// names to `out`. Depth is limited to 3 levels to avoid runaway traversal.
+fn scan_skills_dir(dir: &Path, out: &mut Vec<String>) {
+    scan_skills_dir_depth(dir, 0, out);
+}
+
+fn scan_skills_dir_depth(dir: &Path, depth: usize, out: &mut Vec<String>) {
+    if depth > 3 {
+        return;
+    }
+    let entries = match std::fs::read_dir(dir) {
+        Ok(e) => e,
+        Err(e) => {
+            tracing::warn!(path = %dir.display(), error = %e, "Failed to read skills dir");
+            return;
+        }
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            scan_skills_dir_depth(&path, depth + 1, out);
+        } else if path.file_name().map(|f| f == "SKILL.md").unwrap_or(false) {
+            if let Some(name) = extract_skill_name_from_file(&path) {
+                if !out.contains(&name) {
+                    out.push(name);
+                }
+            }
+        }
+    }
+}
+
+/// Extracts the `name:` value from the YAML frontmatter of a `SKILL.md` file.
+/// Returns `None` if parsing fails; caller may use the directory name as fallback.
+fn extract_skill_name_from_file(skill_md_path: &Path) -> Option<String> {
+    let content = std::fs::read_to_string(skill_md_path).ok()?;
+
+    // The file must start with `---` to have valid frontmatter.
+    let trimmed = content.trim_start();
+    if !trimmed.starts_with("---") {
+        // No frontmatter — use the parent directory name
+        return skill_md_path
+            .parent()
+            .and_then(|p| p.file_name())
+            .map(|f| f.to_string_lossy().into_owned());
+    }
+
+    // Find the closing `---`
+    let after_open = &trimmed[3..];
+    let (frontmatter, _) = after_open.split_once("---")?;
+
+    // Simple line-by-line scan for `name:` field (no full YAML parser dependency)
+    for line in frontmatter.lines() {
+        let line = line.trim();
+        if line.starts_with("name:") {
+            let value = line["name:".len()..]
+                .trim()
+                .trim_matches('"')
+                .trim_matches('\'');
+            if !value.is_empty() {
+                return Some(value.to_string());
+            }
+        }
+    }
+
+    // Fallback: parent dir name
+    skill_md_path
+        .parent()
+        .and_then(|p| p.file_name())
+        .map(|f| f.to_string_lossy().into_owned())
+}
+
+/// Builds the skills preamble to inject into the system prompt.
+///
+/// Example output:
+/// ```text
+/// # Available Skills (@)
+/// Use these skills for specialised tasks by mentioning them as @skill-name:
+/// - @backend-architect
+/// - @typescript-pro
+/// ...
+/// ---
+/// ```
+pub fn build_skills_preamble(skill_names: &[String]) -> String {
+    if skill_names.is_empty() {
+        return String::new();
+    }
+    let mut preamble = String::from(
+        "# Available Skills (@)\nUse these skills for specialised tasks by mentioning them as @skill-name:\n",
+    );
+    for name in skill_names {
+        preamble.push_str(&format!("- @{name}\n"));
+    }
+    preamble.push_str("---\n\n");
+    preamble
+}
+
 // ─── Ошибки ─────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Error)]
@@ -207,6 +355,25 @@ impl LocalProcessHarness {
     ) -> Result<SpawnedChild, HarnessError> {
         let executable = self.resolve_executable()?;
 
+        // ── PM Orchestrator: inject available skills into the prompt ───────────
+        // Scan VK_CUSTOM_SKILLS directories for SKILL.md files and prepend a
+        // structured "Available Skills" block to the prompt so the Orchestrator
+        // knows which @skills are available before calling the LLM.
+        let skill_names = collect_skill_names_from_env(&self.config.env_overrides);
+        let skills_preamble = build_skills_preamble(&skill_names);
+
+        let enriched_prompt: String = if skills_preamble.is_empty() {
+            prompt.to_string()
+        } else {
+            tracing::info!(
+                skills_count = skill_names.len(),
+                skills = ?skill_names,
+                "LocalProcessHarness: injecting skills into system prompt"
+            );
+            format!("{skills_preamble}{prompt}")
+        };
+        // ─────────────────────────────────────────────────────────────────────
+
         let mut cmd = Command::new(&executable);
 
         // 1. Базовые аргументы фреймворка
@@ -217,8 +384,8 @@ impl LocalProcessHarness {
             cmd.args(&self.config.extra_args);
         }
 
-        // 3. Последний аргумент — промпт (большинство агентов принимает его так)
-        cmd.arg(prompt);
+        // 3. Последний аргумент — обогащённый промпт со скиллами
+        cmd.arg(enriched_prompt.as_str());
 
         // 4. Рабочая директория
         cmd.current_dir(working_dir);
@@ -241,6 +408,7 @@ impl LocalProcessHarness {
             executable = %executable.display(),
             working_dir = %working_dir.display(),
             framework = ?self.config.framework,
+            skills_injected = skill_names.len(),
             "LocalProcessHarness: spawning agent process"
         );
 
@@ -333,5 +501,66 @@ mod tests {
         );
         assert_eq!(AgentFramework::ClaudeCode.default_executable(), "claude");
         assert_eq!(AgentFramework::LocalLlm.default_executable(), "ollama");
+    }
+
+    // ── Skill injector tests ─────────────────────────────────────────────────
+
+    #[test]
+    fn no_skills_env_returns_empty() {
+        let env: HashMap<String, String> = HashMap::new();
+        assert!(collect_skill_names_from_env(&env).is_empty());
+    }
+
+    #[test]
+    fn empty_skills_path_returns_empty() {
+        let mut env = HashMap::new();
+        env.insert("VK_CUSTOM_SKILLS".to_string(), String::new());
+        assert!(collect_skill_names_from_env(&env).is_empty());
+    }
+
+    #[test]
+    fn build_skills_preamble_empty_list() {
+        assert_eq!(build_skills_preamble(&[]), "");
+    }
+
+    #[test]
+    fn build_skills_preamble_formats_correctly() {
+        let names = vec![
+            "backend-architect".to_string(),
+            "typescript-pro".to_string(),
+        ];
+        let preamble = build_skills_preamble(&names);
+        assert!(preamble.contains("@backend-architect"));
+        assert!(preamble.contains("@typescript-pro"));
+        assert!(preamble.starts_with("# Available Skills"));
+    }
+
+    #[test]
+    fn extract_skill_name_from_frontmatter() {
+        use std::io::Write;
+        let dir = std::env::temp_dir().join("vk_test_skill_extractor");
+        std::fs::create_dir_all(&dir).unwrap();
+        let skill_path = dir.join("SKILL.md");
+        let mut f = std::fs::File::create(&skill_path).unwrap();
+        f.write_all(b"---\nname: my-awesome-skill\ndescription: A test skill\n---\n# Content")
+            .unwrap();
+        let name = extract_skill_name_from_file(&skill_path);
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(name, Some("my-awesome-skill".to_string()));
+    }
+
+    #[test]
+    fn extract_skill_name_falls_back_to_dir_name() {
+        use std::io::Write;
+        let dir = std::env::temp_dir().join("vk_test_no_frontmatter");
+        std::fs::create_dir_all(&dir).unwrap();
+        let skill_path = dir.join("SKILL.md");
+        let mut f = std::fs::File::create(&skill_path).unwrap();
+        f.write_all(b"# Just a plain markdown file with no frontmatter")
+            .unwrap();
+        let name = extract_skill_name_from_file(&skill_path);
+        std::fs::remove_dir_all(&dir).unwrap();
+        // Fallback: parent dir name
+        assert_eq!(name, Some("vk_test_no_frontmatter".to_string()));
     }
 }

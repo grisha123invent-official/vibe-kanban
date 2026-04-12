@@ -8,7 +8,6 @@ import type { ReactNode } from 'react';
 import {
   LayoutIcon,
   DownloadSimpleIcon,
-  LinkIcon,
   PlusIcon,
   KanbanIcon,
   SpinnerIcon,
@@ -186,13 +185,13 @@ function getHostButtonClassName({
 
 export function AppBar({
   projects,
-  hosts = [],
-  onPairHostClick,
-  activeHostId = null,
+  hosts: _hosts = [],
+  onPairHostClick: _onPairHostClick,
+  activeHostId: _activeHostId = null,
   onCreateProject,
   onExportClick,
   onWorkspacesClick,
-  onHostClick,
+  onHostClick: _onHostClick,
   showWorkspacesButton = true,
   onProjectClick,
   onProjectsDragEnd,
@@ -217,12 +216,12 @@ export function AppBar({
   if (showWorkspacesButton) {
     sections.push({
       key: 'local',
-      label: 'Local',
+      label: t('appBar.local', 'Local'),
       items: [
         {
           key: 'local-workspaces',
           kind: 'icon-button',
-          label: 'Local workspaces',
+          label: t('appBar.localWorkspaces', 'Local workspaces'),
           icon: LayoutIcon,
           isActive: isWorkspacesActive,
           onClick: onWorkspacesClick,
@@ -231,40 +230,7 @@ export function AppBar({
     });
   }
 
-  if (hosts.length > 0 || onPairHostClick) {
-    sections.push({
-      key: 'remote',
-      label: 'Remote',
-      items: [
-        ...hosts.map((host) => ({
-          key: `host-${host.id}`,
-          kind: 'host-button' as const,
-          host,
-          isActive: host.id === activeHostId,
-          onClick: () => {
-            if (host.status === 'offline') {
-              return;
-            }
 
-            onHostClick?.(host.id, host.status);
-          },
-        })),
-        ...(onPairHostClick
-          ? [
-              {
-                key: 'pair-remote-device',
-                kind: 'icon-button' as const,
-                label: 'Pair a remote device',
-                icon: LinkIcon,
-                onClick: onPairHostClick,
-                className:
-                  'bg-primary text-muted hover:text-normal hover:bg-tertiary',
-              },
-            ]
-          : []),
-      ],
-    });
-  }
 
   const projectSectionItems: AppBarSectionItem[] = [];
 
@@ -297,7 +263,7 @@ export function AppBar({
     projectSectionItems.push({
       key: 'create-project',
       kind: 'icon-button',
-      label: 'Create project',
+      label: t('appBar.createProject', 'Создать проект'),
       icon: PlusIcon,
       onClick: onCreateProject,
       className: 'bg-primary text-muted hover:text-normal hover:bg-tertiary',
@@ -308,7 +274,7 @@ export function AppBar({
   if (projectSectionItems.length > 0) {
     sections.push({
       key: 'projects',
-      label: 'Projects',
+      label: t('appBar.projects', 'Проекты'),
       items: projectSectionItems,
     });
   }
@@ -316,12 +282,12 @@ export function AppBar({
   if (isSignedIn && onExportClick) {
     sections.push({
       key: 'export',
-      label: 'Export',
+      label: t('appBar.export', 'Экспорт'),
       items: [
         {
           key: 'export-data',
           kind: 'icon-button',
-          label: 'Export data',
+          label: t('appBar.exportData', 'Экспорт данных'),
           icon: DownloadSimpleIcon,
           isActive: isExportActive,
           onClick: onExportClick,

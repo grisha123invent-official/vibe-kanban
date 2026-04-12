@@ -74,6 +74,7 @@ export function buildHarnessConfig(params: {
   geminiApiKey: string;
   claudeApiKey: string;
   localLlmUrl: string;
+  llmApiKey: string;
   customSkills: string;
 }): AgentHarnessConfig {
   const {
@@ -81,6 +82,7 @@ export function buildHarnessConfig(params: {
     geminiApiKey,
     claudeApiKey,
     localLlmUrl,
+    llmApiKey,
     customSkills,
   } = params;
 
@@ -88,6 +90,11 @@ export function buildHarnessConfig(params: {
 
   if (claudeApiKey) {
     env_overrides['ANTHROPIC_API_KEY'] = claudeApiKey;
+  }
+
+  if (llmApiKey) {
+    env_overrides['OPENAI_API_KEY'] = llmApiKey;
+    env_overrides['LOCAL_LLM_API_KEY'] = llmApiKey;
   }
 
   if (customSkills) {

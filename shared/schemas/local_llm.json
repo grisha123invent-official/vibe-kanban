@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Local LLM / Custom API",
+  "name": "Local LLM",
+  "description": "Использует кастомный OpenAI-совместимый эндпоинт (Ollama, OpenRouter и др.)",
+  "type": "object",
+  "properties": {
+    "prompt": {
+      "type": "string",
+      "description": "Инструкция для локальной модели",
+      "ui:widget": "textarea"
+    }
+  },
+  "required": ["prompt"]
+}

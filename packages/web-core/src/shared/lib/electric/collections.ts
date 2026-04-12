@@ -380,10 +380,7 @@ function createElectricShapeOptions(args: {
       }
 
       args.reportError({ status, message });
-
-      if (status === undefined || status >= 500) {
-        args.onElectricUnavailable();
-      }
+      args.onElectricUnavailable();
     },
   };
 }

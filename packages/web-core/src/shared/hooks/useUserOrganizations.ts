@@ -1,19 +1,28 @@
 import { useQuery } from '@tanstack/react-query';
-import { organizationsApi } from '@/shared/lib/api';
-import { useAuth } from '@/shared/hooks/auth/useAuth';
 import type { ListOrganizationsResponse } from 'shared/types';
 import { organizationKeys } from '@/shared/hooks/organizationKeys';
 
 /**
- * Hook to fetch all organizations that the current user is a member of
+ * Local-first stub: returns a single hard-coded "Local Workspace" organisation.
+ * This lets the rest of the codebase continue to work without a real backend.
  */
 export function useUserOrganizations() {
-  const { isSignedIn } = useAuth();
-
   return useQuery<ListOrganizationsResponse>({
     queryKey: organizationKeys.userList(),
-    queryFn: () => organizationsApi.getUserOrganizations(),
-    enabled: isSignedIn,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    queryFn: async (): Promise<ListOrganizationsResponse> => ({
+      organizations: [
+        {
+          id: 'local-org',
+          name: 'Local Workspace',
+          slug: 'local',
+          handle: 'local',
+          is_personal: true,
+          issue_prefix: 'LW',
+          user_role: 'owner',
+          created_at: '2024-01-01T00:00:00Z',
+          updated_at: '2024-01-01T00:00:00Z',
+        } as any, // `handle` is not in OrganizationWithRole but harmless at runtime
+      ],
+    }),
   });
 }

@@ -53,8 +53,8 @@ const CreateConfigurationDialogImpl = create<CreateConfigurationDialogProps>(
       if (!trimmedName) return 'Configuration name cannot be empty';
       if (trimmedName.length > 40)
         return 'Configuration name must be 40 characters or less';
-      if (!/^[a-zA-Z0-9_-]+$/.test(trimmedName)) {
-        return 'Configuration name can only contain letters, numbers, underscores, and hyphens';
+      if (!/^[\p{L}\p{N}_\- ]+$/u.test(trimmedName)) {
+        return 'Configuration name can only contain letters, numbers, spaces, underscores, and hyphens';
       }
       if (existingConfigs.includes(trimmedName)) {
         return 'A configuration with this name already exists';

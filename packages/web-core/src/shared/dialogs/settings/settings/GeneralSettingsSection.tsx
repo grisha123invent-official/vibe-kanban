@@ -87,6 +87,7 @@ export function GeneralSettingsSection() {
   const [geminiApiKey, setGeminiApiKey] = useState('');
   const [claudeApiKey, setClaudeApiKey] = useState('');
   const [localLlmUrl, setLocalLlmUrl] = useState('');
+  const [llmApiKey, setLlmApiKey] = useState('');
   const [customSkills, setCustomSkills] = useState('');
   const [agentSaving, setAgentSaving] = useState(false);
   const [agentSaveError, setAgentSaveError] = useState<string | null>(null);
@@ -102,6 +103,7 @@ export function GeneralSettingsSection() {
         geminiApiKey,
         claudeApiKey,
         localLlmUrl,
+        llmApiKey,
         customSkills,
       });
       // Fire a "dry-run" spawn with an empty prompt so the backend validates
@@ -394,6 +396,23 @@ export function GeneralSettingsSection() {
             value={localLlmUrl}
             onChange={setLocalLlmUrl}
             placeholder="http://localhost:11434"
+          />
+        </SettingsField>
+
+        <SettingsField
+          label={t('settings.general.agentManagement.llmApiKey.label', {
+            defaultValue: 'Local LLM / Aggregator API Key',
+          })}
+          description={t('settings.general.agentManagement.llmApiKey.helper', {
+            defaultValue:
+              'Required for API aggregators like Kia / OpenRouter (OPENAI_API_KEY)',
+          })}
+        >
+          <SettingsInput
+            value={llmApiKey}
+            onChange={setLlmApiKey}
+            placeholder="sk-..."
+            type="password"
           />
         </SettingsField>
 

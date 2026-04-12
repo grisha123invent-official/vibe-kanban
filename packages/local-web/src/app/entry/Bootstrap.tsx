@@ -78,10 +78,10 @@ if (isTauriApp()) {
 }
 
 configureAuthRuntime({
-  getToken: () => tokenManager.getToken(),
-  triggerRefresh: () => tokenManager.triggerRefresh(),
+  getToken: () => Promise.resolve('offline-dummy-token'),
+  triggerRefresh: () => Promise.resolve('offline-dummy-token'),
   registerShape: (shape) => tokenManager.registerShape(shape),
-  getCurrentUser: () => oauthApi.getCurrentUser(),
+  getCurrentUser: () => Promise.resolve({ user_id: 'local-user' }),
 });
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
