@@ -361,6 +361,15 @@ export function SessionChatBoxContainer(props: SessionChatBoxContainerProps) {
   // User profiles, config preference, and latest executor from processes
   const { profiles, config, capabilities } = useUserSystem();
 
+  // Filter out executors disabled by the user in Settings → Agents → Availability
+  const filteredProfiles = useMemo(() => {
+    if (!profiles || !config?.disabled_executors?.length) return profiles;
+    const disabledSet = new Set(config.disabled_executors);
+    return Object.fromEntries(
+      Object.entries(profiles).filter(([key]) => !disabledSet.has(key as never))
+    ) as typeof profiles;
+  }, [profiles, config?.disabled_executors]);
+
   // Fetch processes from last session to get full profile (only in new session mode)
   const lastSessionId = isNewSessionMode ? sessions?.[0]?.id : undefined;
   const { executionProcesses: lastSessionProcesses } =
@@ -455,7 +464,7 @@ export function SessionChatBoxContainer(props: SessionChatBoxContainerProps) {
     setVariant: setSelectedVariant,
     setOverrides: setExecutorOverrides,
   } = useExecutorConfig({
-    profiles,
+    profiles: filteredProfiles,
     lastUsedConfig: latestConfig,
     scratchConfig: scratchData?.executor_config ?? undefined,
     configExecutorProfile: config?.executor_profile,

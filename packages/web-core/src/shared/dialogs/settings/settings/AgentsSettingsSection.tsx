@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from '@vibe/ui/components/Dropdown';
 import { ExecutorConfigForm } from './ExecutorConfigForm';
+import { ExecutorAvailabilityPanel } from './ExecutorAvailabilityPanel';
 import { useMachineProfiles } from '@/shared/hooks/useProfiles';
 import { useUserSystem } from '@/shared/hooks/useUserSystem';
 import { CreateConfigurationDialog } from '../CreateConfigurationDialog';
@@ -36,10 +37,13 @@ import { getExecutorVariantKeys } from '@/shared/lib/executor';
 
 type ExecutorsMap = Record<string, Record<string, Record<string, unknown>>>;
 
+type AgentsTab = 'availability' | 'config';
+
 export function AgentsSettingsSection() {
   const { t } = useTranslation(['settings', 'common']);
   const { setDirty: setContextDirty } = useSettingsDirty();
   const machineClient = useSettingsMachineClient();
+  const [activeTab, setActiveTab] = useState<AgentsTab>('availability');
 
   // Profiles hook for server state
   const {
@@ -355,6 +359,37 @@ export function AgentsSettingsSection() {
 
   return (
     <>
+      {/* Tab switcher */}
+      <div className="flex gap-1 p-1 bg-secondary rounded-md mb-4 w-fit">
+        <button
+          onClick={() => setActiveTab('availability')}
+          className={cn(
+            'px-3 py-1.5 text-sm rounded transition-colors',
+            activeTab === 'availability'
+              ? 'bg-background text-normal shadow-sm font-medium'
+              : 'text-low hover:text-normal'
+          )}
+        >
+          Доступность
+        </button>
+        <button
+          onClick={() => setActiveTab('config')}
+          className={cn(
+            'px-3 py-1.5 text-sm rounded transition-colors',
+            activeTab === 'config'
+              ? 'bg-background text-normal shadow-sm font-medium'
+              : 'text-low hover:text-normal'
+          )}
+        >
+          Конфигурация
+        </button>
+      </div>
+
+      {/* Availability panel */}
+      {activeTab === 'availability' && <ExecutorAvailabilityPanel />}
+
+      {/* Configuration panel */}
+      {activeTab === 'config' && <>
       {/* Status messages */}
       {!!profilesError && (
         <div className="bg-error/10 border border-error/50 rounded-sm p-4 text-error mb-4">
@@ -520,6 +555,7 @@ export function AgentsSettingsSection() {
         onSave={handleSave}
         onDiscard={handleDiscard}
       />
+      </>}
     </>
   );
 }

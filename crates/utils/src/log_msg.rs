@@ -81,4 +81,108 @@ impl LogMsg {
             LogMsg::Finished => EV_FINISHED.len() + OVERHEAD,
         }
     }
+
+    /// Returns true if this variant is expected in a raw stdout/stderr stream.
+    /// Used to filter unexpected variants in WebSocket raw-log streaming.
+    pub fn is_raw_stream_variant(&self) -> bool {
+        matches!(self, LogMsg::Stdout(_) | LogMsg::Stderr(_) | LogMsg::Finished)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── name() ──────────────────────────────────────────────────────────────
+
+    #[test]
+    fn name_returns_correct_event_string_for_every_variant() {
+        assert_eq!(LogMsg::Stdout("x".into()).name(), EV_STDOUT);
+        assert_eq!(LogMsg::Stderr("x".into()).name(), EV_STDERR);
+        assert_eq!(LogMsg::JsonPatch(Default::default()).name(), EV_JSON_PATCH);
+        assert_eq!(LogMsg::SessionId("s".into()).name(), EV_SESSION_ID);
+        assert_eq!(LogMsg::MessageId("m".into()).name(), EV_MESSAGE_ID);
+        assert_eq!(LogMsg::Ready.name(), EV_READY);
+        assert_eq!(LogMsg::Finished.name(), EV_FINISHED);
+    }
+
+    // ── to_ws_message_unchecked() ────────────────────────────────────────────
+
+    #[test]
+    fn ws_message_finished_uses_lowercase_finished_key() {
+        let msg = LogMsg::Finished.to_ws_message_unchecked();
+        let Message::Text(text) = msg else {
+            panic!("expected Text message");
+        };
+        let v: serde_json::Value = serde_json::from_str(text.as_str()).unwrap();
+        assert_eq!(v["finished"], true, "finished key must be lowercase bool");
+    }
+
+    #[test]
+    fn ws_message_ready_uses_ready_key() {
+        let msg = LogMsg::Ready.to_ws_message_unchecked();
+        let Message::Text(text) = msg else {
+            panic!("expected Text message");
+        };
+        let v: serde_json::Value = serde_json::from_str(text.as_str()).unwrap();
+        assert_eq!(v["Ready"], true, "Ready key must be present");
+    }
+
+    #[test]
+    fn ws_message_stdout_roundtrips_content() {
+        let payload = "hello world";
+        let msg = LogMsg::Stdout(payload.into()).to_ws_message_unchecked();
+        let Message::Text(text) = msg else {
+            panic!("expected Text message");
+        };
+        let v: serde_json::Value = serde_json::from_str(text.as_str()).unwrap();
+        assert_eq!(v["Stdout"], payload);
+    }
+
+    #[test]
+    fn ws_message_stderr_roundtrips_content() {
+        let payload = "error output";
+        let msg = LogMsg::Stderr(payload.into()).to_ws_message_unchecked();
+        let Message::Text(text) = msg else {
+            panic!("expected Text message");
+        };
+        let v: serde_json::Value = serde_json::from_str(text.as_str()).unwrap();
+        assert_eq!(v["Stderr"], payload);
+    }
+
+    // ── approx_bytes() ───────────────────────────────────────────────────────
+
+    #[test]
+    fn approx_bytes_accounts_for_content_length() {
+        let short = LogMsg::Stdout("hi".into()).approx_bytes();
+        let long = LogMsg::Stdout("hello world this is longer".into()).approx_bytes();
+        assert!(
+            long > short,
+            "longer content should produce larger approx_bytes"
+        );
+    }
+
+    #[test]
+    fn approx_bytes_finished_and_ready_are_small() {
+        // Finished/Ready carry no payload so they should be small
+        assert!(LogMsg::Finished.approx_bytes() < 32);
+        assert!(LogMsg::Ready.approx_bytes() < 32);
+    }
+
+    // ── is_raw_stream_variant() ───────────────────────────────────────────────
+
+    #[test]
+    fn raw_stream_variants_are_stdout_stderr_finished() {
+        assert!(LogMsg::Stdout("".into()).is_raw_stream_variant());
+        assert!(LogMsg::Stderr("".into()).is_raw_stream_variant());
+        assert!(LogMsg::Finished.is_raw_stream_variant());
+    }
+
+    #[test]
+    fn non_raw_stream_variants_are_rejected() {
+        assert!(!LogMsg::JsonPatch(Default::default()).is_raw_stream_variant());
+        assert!(!LogMsg::SessionId("s".into()).is_raw_stream_variant());
+        assert!(!LogMsg::MessageId("m".into()).is_raw_stream_variant());
+        assert!(!LogMsg::Ready.is_raw_stream_variant());
+    }
 }

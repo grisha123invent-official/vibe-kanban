@@ -1020,6 +1020,18 @@ export const configApi = {
     );
     return handleApiResponse<AvailabilityInfo>(response);
   },
+  getAllAgentsAvailability: async (
+    hostId?: string | null
+  ): Promise<Record<BaseCodingAgent, AvailabilityInfo>> => {
+    const response = await makeHostAwareRequest(
+      '/api/agents/availability',
+      hostId,
+      { cache: 'no-store' }
+    );
+    return handleApiResponse<Record<BaseCodingAgent, AvailabilityInfo>>(
+      response
+    );
+  },
 };
 
 // Task Tags APIs (all tags are global)

@@ -52,6 +52,7 @@ pub fn router() -> Router<DeploymentImpl> {
             get(check_editor_availability),
         )
         .route("/agents/check-availability", get(check_agent_availability))
+        .route("/agents/availability", get(get_all_agents_availability))
         .route("/agents/preset-options", get(get_agent_preset_options))
         .route(
             "/agents/discovered-options/ws",
@@ -101,7 +102,6 @@ pub struct UserSystemInfo {
     pub preview_proxy_port: Option<u16>,
 }
 
-// TODO: update frontend, BE schema has changed, this replaces GET /config and /config/constants
 #[axum::debug_handler]
 async fn get_user_system_info(
     State(deployment): State<DeploymentImpl>,
@@ -558,6 +558,40 @@ async fn check_agent_availability(
     };
 
     ResponseJson(ApiResponse::success(info))
+}
+
+/// Returns availability info for all supported executors in a single request.
+/// Frontend uses this to show installed/not-installed status and install instructions.
+async fn get_all_agents_availability(
+    State(_deployment): State<DeploymentImpl>,
+) -> ResponseJson<ApiResponse<HashMap<String, AvailabilityInfo>>> {
+    let profiles = ExecutorConfigs::get_cached();
+
+    let all_agents = [
+        BaseCodingAgent::ClaudeCode,
+        BaseCodingAgent::Gemini,
+        BaseCodingAgent::Codex,
+        BaseCodingAgent::Opencode,
+        BaseCodingAgent::CursorAgent,
+        BaseCodingAgent::QwenCode,
+        BaseCodingAgent::Copilot,
+        BaseCodingAgent::Droid,
+        BaseCodingAgent::Amp,
+    ];
+
+    let result: HashMap<String, AvailabilityInfo> = all_agents
+        .into_iter()
+        .map(|agent| {
+            let key = agent.to_string();
+            let info = match profiles.get_coding_agent(&ExecutorProfileId::new(agent)) {
+                Some(executor) => executor.get_availability_info(),
+                None => AvailabilityInfo::NotFound,
+            };
+            (key, info)
+        })
+        .collect();
+
+    ResponseJson(ApiResponse::success(result))
 }
 
 #[derive(Debug, Deserialize, TS)]

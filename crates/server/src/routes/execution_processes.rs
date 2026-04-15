@@ -85,23 +85,36 @@ async fn handle_raw_logs_ws(
     };
 
     let counter = Arc::new(AtomicUsize::new(0));
-    let mut stream = raw_stream.map_ok({
-        let counter = counter.clone();
-        move |m| match m {
-            LogMsg::Stdout(content) => {
-                let index = counter.fetch_add(1, Ordering::SeqCst);
-                let patch = ConversationPatch::add_stdout(index, content);
-                LogMsg::JsonPatch(patch).to_ws_message_unchecked()
+    // Filter out unexpected variants, then map to WebSocket messages.
+    // try_filter uses a sync ready-future so the resulting stream stays Unpin.
+    let mut stream = raw_stream
+        .try_filter(|m| {
+            if !m.is_raw_stream_variant() {
+                tracing::warn!(
+                    "Unexpected LogMsg variant in raw stream: {:?}; skipping",
+                    m
+                );
             }
-            LogMsg::Stderr(content) => {
-                let index = counter.fetch_add(1, Ordering::SeqCst);
-                let patch = ConversationPatch::add_stderr(index, content);
-                LogMsg::JsonPatch(patch).to_ws_message_unchecked()
+            futures_util::future::ready(m.is_raw_stream_variant())
+        })
+        .map_ok({
+            let counter = counter.clone();
+            move |m| match m {
+                LogMsg::Stdout(content) => {
+                    let index = counter.fetch_add(1, Ordering::SeqCst);
+                    let patch = ConversationPatch::add_stdout(index, content);
+                    LogMsg::JsonPatch(patch).to_ws_message_unchecked()
+                }
+                LogMsg::Stderr(content) => {
+                    let index = counter.fetch_add(1, Ordering::SeqCst);
+                    let patch = ConversationPatch::add_stderr(index, content);
+                    LogMsg::JsonPatch(patch).to_ws_message_unchecked()
+                }
+                LogMsg::Finished => LogMsg::Finished.to_ws_message_unchecked(),
+                // All other variants were filtered out above; this branch is unreachable.
+                _ => unreachable!("filtered by is_raw_stream_variant()"),
             }
-            LogMsg::Finished => LogMsg::Finished.to_ws_message_unchecked(),
-            _ => unreachable!("Raw stream should only have Stdout/Stderr/Finished"),
-        }
-    });
+        });
 
     loop {
         tokio::select! {

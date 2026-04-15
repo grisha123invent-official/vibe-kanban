@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use anyhow::Error;
 use executors::{executors::BaseCodingAgent, profile::ExecutorProfileId};
 use serde::{Deserialize, Serialize};
@@ -68,6 +70,10 @@ pub struct Config {
     pub relay_enabled: bool,
     #[serde(default)]
     pub host_nickname: Option<String>,
+    /// Executors explicitly disabled by the user. Disabled executors are hidden
+    /// from the session executor picker but still visible in Settings → Agents.
+    #[serde(default)]
+    pub disabled_executors: HashSet<BaseCodingAgent>,
 }
 
 impl Config {
@@ -99,6 +105,7 @@ impl Config {
             send_message_shortcut: SendMessageShortcut::default(),
             relay_enabled: true,
             host_nickname: None,
+            disabled_executors: Default::default(),
         }
     }
 
@@ -155,6 +162,7 @@ impl Default for Config {
             send_message_shortcut: SendMessageShortcut::default(),
             relay_enabled: true,
             host_nickname: None,
+            disabled_executors: Default::default(),
         }
     }
 }
